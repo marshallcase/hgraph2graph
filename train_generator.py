@@ -9,6 +9,7 @@ import math, random, sys
 import numpy as np
 import argparse
 import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from tqdm.auto import tqdm
 
 from hgraph import *
@@ -93,7 +94,7 @@ for epoch in range(args.epoch):
         nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)
         optimizer.step()
 
-        meters = meters + np.array([kl_div, loss.item(), wacc * 100, iacc * 100, tacc * 100, sacc * 100])
+        meters = meters + np.array([kl_div, loss.item(), wacc.cpu() * 100, iacc.cpu() * 100, tacc.cpu() * 100, sacc.cpu() * 100])
 
         if total_step % args.print_iter == 0:
             meters /= args.print_iter
