@@ -2,7 +2,7 @@ import sys
 import argparse 
 from hgraph import *
 from rdkit import Chem
-from multiprocessing import Pool
+from multiprocessing.dummy import Pool
 
 def process(data):
     vocab = set()
