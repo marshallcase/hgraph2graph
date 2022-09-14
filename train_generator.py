@@ -9,7 +9,6 @@ import math, random, sys
 import numpy as np
 import argparse
 import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 from tqdm.auto import tqdm
 
 from hgraph import *

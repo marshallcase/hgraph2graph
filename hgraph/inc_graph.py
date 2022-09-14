@@ -55,7 +55,7 @@ class IncBase(object):
 
 class IncTree(IncBase):
 
-    def __init__(self, batch_size, node_fdim, edge_fdim, max_nodes=100, max_edges=200, max_nb=12, max_sub_nodes=20):
+    def __init__(self, batch_size, node_fdim, edge_fdim, max_nodes=100, max_edges=200, max_nb=12, max_sub_nodes=50):
         super(IncTree, self).__init__(batch_size, node_fdim, edge_fdim, max_nodes, max_edges, max_nb)
         self.cgraph = self.fnode.new_zeros(max_nodes * batch_size, max_sub_nodes)
 
