@@ -23,27 +23,111 @@ class MolGraph(object):
 
     def find_clusters(self):
         mol = self.mol
-        n_atoms = mol.GetNumAtoms()
+                
         if n_atoms == 1: #special case
             return [(0,)], [[0]]
 
-        clusters = []
-        for bond in mol.GetBonds():
-            a1 = bond.GetBeginAtom().GetIdx()
-            a2 = bond.GetEndAtom().GetIdx()
-            if not bond.IsInRing():
-                clusters.append( (a1,a2) )
+        #separately define proline, because the backbone creates double recognition
+        proline = 'O=CC1CCCN1'
+        proline_matches = mol.GetSubstructMatches(Chem.MolFromSmiles(proline),useChirality=True)
+        
+        #find all amino acids
+        amino_acid_motif = 'NCC=O'
+        matches = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_motif),useChirality=True)
 
-        ssr = [tuple(x) for x in Chem.GetSymmSSSR(mol)]
-        clusters.extend(ssr)
+        #find matches that aren't prolines
+        matches_without_prolines = [match for match in matches if not any([x in np.hstack(proline_matches) for x in match])]
+        
+        #get matches with overlapping nitrogens for cluster identification (this method will not get the C-terminal amino acid)
+        amino_acid_n = 'NCC(=O)N'
+        matches_n = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_n),useChirality=True)
+        matches_n_no_prolines = [match for match in matches_n if sum([x in np.hstack(proline_matches) for x in match]) < 2]
+        matches_n = [match_n for match_n in matches_n]
+        
+        #get matches with overlapping carboynl oxygens for cluster identification (this method will not get the N-terminal amino acid)
+        amino_acid_c = 'O=CCNC'
+        matches_c = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_c),useChirality=True)
+        matches_c_no_prolines = [match for match in matches_c if sum([x in np.hstack(proline_matches) for x in match]) < 2]
 
-        if 0 not in clusters[0]: #root is not node[0]
-            for i,cls in enumerate(clusters):
-                if 0 in cls:
-                    clusters = [clusters[i]] + clusters[:i] + clusters[i+1:]
-                    #clusters[i], clusters[0] = clusters[0], clusters[i]
-                    break
+        #split up side chain atoms and backbone atoms
+        backbone_atoms = np.hstack(np.unique(np.concatenate((np.hstack(matches_n_no_prolines),np.hstack(matches_c_no_prolines),np.hstack(proline_matches),np.hstack(mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(O)=O'),useChirality=True))))))
+        sidechain_atoms = np.setdiff1d(np.array(range(1,mol.GetNumAtoms())),backbone_atoms)
+        
+        #identify the c and n terminus by finding where the amino acid backbone begins and ends
+        matches_double_overlap = mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(NCC=O)=O'),useChirality=True)
+        matches_double_overlap = [m for m in matches_double_overlap if not any([x in sidechain_atoms for x in m])]
+        count = Counter(np.hstack(matches_double_overlap))
+        matches_double_overlap = [m for m in matches_double_overlap if not all(count[x] > 1 for x in m )]
+        if len(matches_double_overlap) == 2:
+            n_terminus = [x for x in matches_double_overlap[0] if count[x] == 1]
+            c_terminus = [x for x in matches_double_overlap[1] if count[x] == 1]
+        else:
+            print('could not identify termini correctly')
+            
+        #identify the termini clusters
+        #nterm cluster
+        if any([x in np.hstack(proline_matches) for x in n_terminus]): #n_terminus is a proline
+            n_terminus = [np.array(proline) for proline in proline_matches if any([x in n_terminus for x in proline])][0]
+        else: #n_terminus is not a proline
+            n_terminus = [np.array(match) for match in matches if any([x in n_terminus for x in match])][0]
+            
+        #cterm cluster
+        if any([x in np.hstack(proline_matches) for x in c_terminus]):
+            c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CN1[C@H](C(O)=O)CCC1'),useChirality=True))[0]
+        else: #c terminus is not a proline
+            c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CNCC(=O)O'),useChirality=True))[0]
+            
+        #non-terminus prolines
+        prolines_non_terminal = [proline for proline in proline_matches if not any([(x in c_terminus) or (x in n_terminus) for x in proline])]
+        if len(prolines_non_terminal) > 0:
+            prolines_not_terminal_overlap = mol.GetSubstructMatches(Chem.MolFromSmiles('O=CC1CCCN1C'),useChirality=True)
+            prolines_not_terminal_overlap = [proline for proline in prolines_not_terminal_overlap if any([x in np.hstack(prolines_non_terminal) for x in proline])]
+        else:
+            prolines_not_terminal_overlap = []
+        
+        #define clusters from backbones, the termini, and any prolines
+        clusters = list()
+        [clusters.append(match) for match in matches_c_no_prolines if sum([x in c_terminus for x in match]) < 2]
+        clusters.append(list(c_terminus))
+        clusters.append(list(n_terminus))
+        [clusters.append(proline) for proline in prolines_not_terminal_overlap]
+        
+        #define alpha carbons and sets of backbone/ sideatoms without and with them
+        c_alphas = np.array(matches)[:,1]
+        c_alphas_neighbors = [mol.GetAtomWithIdx(int(x)).GetNeighbors() for x in c_alphas]
+        sidechain_atoms_with_calphas = np.union1d(sidechain_atoms,c_alphas)
+        backbone_atoms_without_calphas = np.setdiff1d(backbone_atoms,c_alphas)
+        
+        ##recursively identify alpha carbons, and map the atom indices that contain their side chains
+        for index,c_alpha in enumerate(c_alphas): #iterate throguh each alpha carbon
+            c_alpha_neighbors = mol.GetAtomWithIdx(int(c_alpha)).GetNeighbors() #get the neighbors of given c_alpha. serves as starting point for molecular search
+            if c_alpha in np.hstack(proline_matches): #disregard prolines, do not traverse these amino acids
+                continue
+            for neighbor in c_alpha_neighbors: #for each atom next to a c_alpha, traverse it if it's not a backbone atom and it's also a carbon
+                if (neighbor.GetIdx() not in backbone_atoms) and (neighbor.GetAtomicNum() == 6):
+                    side_chain_atoms = np.array([neighbor.GetIdx()]) #define the side chain of this c_alpha as a set, starting over at each new c_alpha
+                    new_neighbors = neighbor.GetNeighbors() # atoms to explore
+                    atoms_to_examine = np.array([]) #next atoms to explore
+                    while(len(new_neighbors) > 0): #if there are new neighbors from the previous step, proceed with side chain traversal
+                        for new_neighbor in new_neighbors:
+                            if (new_neighbor.GetIdx() in c_alphas) and (new_neighbor.GetIdx() not in sidechain_atoms): #if the next atom is a c_alpha, include it (this works for non-stapled and stapled residues)
+                                side_chain_atoms = np.append(side_chain_atoms,new_neighbor.GetIdx())
+                            elif (new_neighbor.GetIdx() not in side_chain_atoms) and (new_neighbor.GetIdx() not in backbone_atoms): #if it's a regular side chain, add it, and all the new neighbors
+                                side_chain_atoms = np.append(side_chain_atoms,new_neighbor.GetIdx())
+                                atoms_to_examine = np.append(atoms_to_examine,new_neighbor.GetIdx())
+                            elif new_neighbor.GetIdx()  in side_chain_atoms: #skip previously explored side chain atoms
+                                continue
+                            elif new_neighbor.GetIdx() in backbone_atoms: #skip previously explored backbone atoms
+                                continue
+                        if len(atoms_to_examine) == 0: #if there's no more atoms to examine, end traversal
+                            break
+                        else:
+                            new_neighbors = np.hstack([mol.GetAtomWithIdx(int(atom)).GetNeighbors() for atom in atoms_to_examine]) #define the next step of neighbors as the atoms to examine
+                            atoms_to_examine = np.array([])
+                    if sum([x in np.hstack(clusters) for x in side_chain_atoms]) < 3: #if most of this side chain has already been added as a cluster, do not add it (this commonly happens when a stapled side chain is traversed from both sides)
+                        clusters.append(np.array([x for x in side_chain_atoms]))
 
+        #for each atom in the molecule, find which clusters it's a part of
         atom_cls = [[] for i in range(n_atoms)]
         for i in range(len(clusters)):
             for atom in clusters[i]:
