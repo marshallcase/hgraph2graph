@@ -4,6 +4,8 @@ import rdkit.Chem as Chem
 import networkx as nx
 from hgraph.chemutils import *
 from hgraph.nnutils import *
+import numpy as np
+from collections import Counter
 
 add = lambda x,y : x + y if type(x) is int else (x[0] + y, x[1] + y)
 
@@ -23,7 +25,7 @@ class MolGraph(object):
 
     def find_clusters(self):
         mol = self.mol
-                
+        n_atoms = mol.GetNumAtoms()
         if n_atoms == 1: #special case
             return [(0,)], [[0]]
 
@@ -34,24 +36,30 @@ class MolGraph(object):
         #find all amino acids
         amino_acid_motif = 'NCC=O'
         matches = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_motif),useChirality=True)
-
-        #find matches that aren't prolines
-        matches_without_prolines = [match for match in matches if not any([x in np.hstack(proline_matches) for x in match])]
         
         #get matches with overlapping nitrogens for cluster identification (this method will not get the C-terminal amino acid)
         amino_acid_n = 'NCC(=O)N'
         matches_n = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_n),useChirality=True)
-        matches_n_no_prolines = [match for match in matches_n if sum([x in np.hstack(proline_matches) for x in match]) < 2]
         matches_n = [match_n for match_n in matches_n]
-        
+
         #get matches with overlapping carboynl oxygens for cluster identification (this method will not get the N-terminal amino acid)
         amino_acid_c = 'O=CCNC'
         matches_c = mol.GetSubstructMatches(Chem.MolFromSmiles(amino_acid_c),useChirality=True)
-        matches_c_no_prolines = [match for match in matches_c if sum([x in np.hstack(proline_matches) for x in match]) < 2]
+
+        #find matches that aren't prolines
+        if len(proline_matches) == 0:
+            matches_without_prolines = matches
+            matches_n_no_prolines = matches_n
+            matches_c_no_prolines = matches_c
+            backbone_atoms = np.hstack(np.unique(np.concatenate((np.hstack(matches_n_no_prolines),np.hstack(matches_c_no_prolines),np.hstack(mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(O)=O'),useChirality=True))))))
+        else:
+            matches_without_prolines = [match for match in matches if not any([x in np.hstack(proline_matches) for x in match])]
+            matches_n_no_prolines = [match for match in matches_n if sum([x in np.hstack(proline_matches) for x in match]) < 2]
+            matches_c_no_prolines = [match for match in matches_c if sum([x in np.hstack(proline_matches) for x in match]) < 2]
+            backbone_atoms = np.hstack(np.unique(np.concatenate((np.hstack(matches_n_no_prolines),np.hstack(matches_c_no_prolines),np.hstack(proline_matches),np.hstack(mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(O)=O'),useChirality=True))))))
 
         #split up side chain atoms and backbone atoms
-        backbone_atoms = np.hstack(np.unique(np.concatenate((np.hstack(matches_n_no_prolines),np.hstack(matches_c_no_prolines),np.hstack(proline_matches),np.hstack(mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(O)=O'),useChirality=True))))))
-        sidechain_atoms = np.setdiff1d(np.array(range(1,mol.GetNumAtoms())),backbone_atoms)
+        sidechain_atoms = np.setdiff1d(np.array(range(1,n_atoms)),backbone_atoms)
         
         #identify the c and n terminus by finding where the amino acid backbone begins and ends
         matches_double_overlap = mol.GetSubstructMatches(Chem.MolFromSmiles('NCC(NCC=O)=O'),useChirality=True)
@@ -66,14 +74,16 @@ class MolGraph(object):
             
         #identify the termini clusters
         #nterm cluster
-        if any([x in np.hstack(proline_matches) for x in n_terminus]): #n_terminus is a proline
-            n_terminus = [np.array(proline) for proline in proline_matches if any([x in n_terminus for x in proline])][0]
+        if len(proline_matches) != 0:
+            if any([x in np.hstack(proline_matches) for x in n_terminus]): #n_terminus is a proline
+                n_terminus = [np.array(proline) for proline in proline_matches if any([x in n_terminus for x in proline])][0]
         else: #n_terminus is not a proline
             n_terminus = [np.array(match) for match in matches if any([x in n_terminus for x in match])][0]
             
         #cterm cluster
-        if any([x in np.hstack(proline_matches) for x in c_terminus]):
-            c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CN1[C@H](C(O)=O)CCC1'),useChirality=True))[0]
+        if len(proline_matches) != 0:
+            if any([x in np.hstack(proline_matches) for x in c_terminus]):
+                c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CN1[C@H](C(O)=O)CCC1'),useChirality=True))[0]
         else: #c terminus is not a proline
             c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CNCC(=O)O'),useChirality=True))[0]
             
@@ -88,8 +98,8 @@ class MolGraph(object):
         #define clusters from backbones, the termini, and any prolines
         clusters = list()
         [clusters.append(match) for match in matches_c_no_prolines if sum([x in c_terminus for x in match]) < 2]
-        clusters.append(list(c_terminus))
-        clusters.append(list(n_terminus))
+        clusters.append(tuple(c_terminus))
+        clusters.append(tuple(n_terminus))
         [clusters.append(proline) for proline in prolines_not_terminal_overlap]
         
         #define alpha carbons and sets of backbone/ sideatoms without and with them
@@ -101,8 +111,9 @@ class MolGraph(object):
         ##recursively identify alpha carbons, and map the atom indices that contain their side chains
         for index,c_alpha in enumerate(c_alphas): #iterate throguh each alpha carbon
             c_alpha_neighbors = mol.GetAtomWithIdx(int(c_alpha)).GetNeighbors() #get the neighbors of given c_alpha. serves as starting point for molecular search
-            if c_alpha in np.hstack(proline_matches): #disregard prolines, do not traverse these amino acids
-                continue
+            if len(proline_matches) != 0 :
+                if c_alpha in np.hstack(proline_matches):
+                    continue
             for neighbor in c_alpha_neighbors: #for each atom next to a c_alpha, traverse it if it's not a backbone atom and it's also a carbon
                 if (neighbor.GetIdx() not in backbone_atoms) and (neighbor.GetAtomicNum() == 6):
                     side_chain_atoms = np.array([neighbor.GetIdx()]) #define the side chain of this c_alpha as a set, starting over at each new c_alpha
@@ -125,7 +136,10 @@ class MolGraph(object):
                             new_neighbors = np.hstack([mol.GetAtomWithIdx(int(atom)).GetNeighbors() for atom in atoms_to_examine]) #define the next step of neighbors as the atoms to examine
                             atoms_to_examine = np.array([])
                     if sum([x in np.hstack(clusters) for x in side_chain_atoms]) < 3: #if most of this side chain has already been added as a cluster, do not add it (this commonly happens when a stapled side chain is traversed from both sides)
-                        clusters.append(np.array([x for x in side_chain_atoms]))
+                        clusters.append(tuple([x for x in side_chain_atoms]))
+
+        #convert cluster atoms to int
+        clusters = [tuple([int(atom) for atom in cluster]) for cluster in clusters]
 
         #for each atom in the molecule, find which clusters it's a part of
         atom_cls = [[] for i in range(n_atoms)]
@@ -163,6 +177,8 @@ class MolGraph(object):
                         graph.add_edge(c1, c2, weight = len(inter))
 
         n, m = len(graph.nodes), len(graph.edges)
+        if n - m <= 1:
+            print(self.smiles)
         assert n - m <= 1 #must be connected
         return graph if n - m == 1 else nx.maximum_spanning_tree(graph)
 
