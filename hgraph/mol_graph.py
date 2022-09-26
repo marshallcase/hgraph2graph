@@ -86,7 +86,7 @@ class MolGraph(object):
             c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CNCC(=O)O'),useChirality=True))[0]
 
         #non-terminus prolines
-        prolines_non_terminal = [proline for proline in proline_matches if not any([(x in c_terminus) or (x in n_terminus) for x in proline])]
+        prolines_non_terminal = [proline for proline in proline_matches if sum([(x in c_terminus) or (x in n_terminus) for x in proline]) < 3]
         if len(prolines_non_terminal) > 0:
             prolines_not_terminal_overlap = mol.GetSubstructMatches(Chem.MolFromSmiles('O=CC1CCCN1C'),useChirality=True)
             prolines_not_terminal_overlap = [proline for proline in prolines_not_terminal_overlap if any([x in np.hstack(prolines_non_terminal) for x in proline])]
@@ -144,8 +144,9 @@ class MolGraph(object):
         for i in range(len(clusters)):
             for atom in clusters[i]:
                 atom_cls[atom].append(i)
-
-        assert len(set(np.hstack(clusters))) == len(mol.GetAtoms()) #every atom must be part of a cluster
+        if len(set(np.hstack(clusters))) != len(mol.GetAtoms()): #every atom must be part of a cluster
+            print(mol)
+            assert len(set(np.hstack(clusters))) == len(mol.GetAtoms())
         return clusters, atom_cls
 
     def tree_decomp(self):
