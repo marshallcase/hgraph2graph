@@ -71,22 +71,20 @@ class MolGraph(object):
             c_terminus = [x for x in matches_double_overlap[1] if count[x] == 1]
         else:
             print('could not identify termini correctly')
-            
+             
         #identify the termini clusters
         #nterm cluster
-        if len(proline_matches) != 0:
-            if any([x in np.hstack(proline_matches) for x in n_terminus]): #n_terminus is a proline
-                n_terminus = [np.array(proline) for proline in proline_matches if any([x in n_terminus for x in proline])][0]
+        if len(proline_matches) != 0 and any([x in np.hstack(proline_matches) for x in n_terminus]): #n_terminus is a proline
+            n_terminus = [np.array(proline) for proline in proline_matches if any([x in n_terminus for x in proline])][0]
         else: #n_terminus is not a proline
             n_terminus = [np.array(match) for match in matches if any([x in n_terminus for x in match])][0]
-            
+
         #cterm cluster
-        if len(proline_matches) != 0:
-            if any([x in np.hstack(proline_matches) for x in c_terminus]):
-                c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CN1[C@H](C(O)=O)CCC1'),useChirality=True))[0]
+        if len(proline_matches) != 0 and any([x in np.hstack(proline_matches) for x in c_terminus]):
+            c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CN1[C@H](C(O)=O)CCC1'),useChirality=True))[0]
         else: #c terminus is not a proline
             c_terminus = np.array(mol.GetSubstructMatches(Chem.MolFromSmiles('CNCC(=O)O'),useChirality=True))[0]
-            
+
         #non-terminus prolines
         prolines_non_terminal = [proline for proline in proline_matches if not any([(x in c_terminus) or (x in n_terminus) for x in proline])]
         if len(prolines_non_terminal) > 0:
@@ -147,6 +145,7 @@ class MolGraph(object):
             for atom in clusters[i]:
                 atom_cls[atom].append(i)
 
+        assert len(set(np.hstack(clusters))) == len(mol.GetAtoms()) #every atom must be part of a cluster
         return clusters, atom_cls
 
     def tree_decomp(self):
@@ -186,14 +185,14 @@ class MolGraph(object):
         #dfs method from mol_graph original
         def dfs(order, pa, prev_sib, x, fa):
             pa[x] = fa 
-            sorted_child = sorted([ y for y in mol_tree[x] if y != fa ]) #better performance with fixed order
+            sorted_child = sorted([ y for y in self.mol_tree[x] if y != fa ]) #better performance with fixed order
             for idx,y in enumerate(sorted_child):
                 if ((x,y,1) in order) or ((y,x,1) in order):
                     # print('trying to add duplicate path to order')
                     continue
                 else:
-                    mol_tree[x][y]['label'] = 0 
-                    mol_tree[y][x]['label'] = idx + 1 #position encoding
+                    self.mol_tree[x][y]['label'] = 0 
+                    self.mol_tree[y][x]['label'] = idx + 1 #position encoding
                     prev_sib[y] = sorted_child[:idx] 
                     prev_sib[y] += [x, fa] if fa >= 0 else [x]
                     order.append( (x,y,1) )
@@ -226,7 +225,7 @@ class MolGraph(object):
             tree.nodes[i]['assm_cands'] = []
 
             if pa[i] >= 0 and len(self.clusters[ pa[i] ]) > 2: #uncertainty occurs in assembly
-                hist = [int(a) for c in prev_sib[i] for a in clusters[c]] 
+                hist = [int(a) for c in prev_sib[i] for a in self.clusters[c]] 
                 pa_cls = self.clusters[ pa[i] ]
                 tree.nodes[i]['assm_cands'] = get_assm_cands(mol, hist, inter_label, pa_cls, len(inter_atoms)) 
 
