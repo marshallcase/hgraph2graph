@@ -183,17 +183,23 @@ class MolGraph(object):
         return graph if n - m == 1 else nx.maximum_spanning_tree(graph)
 
     def label_tree(self):
+        #dfs method from mol_graph original
         def dfs(order, pa, prev_sib, x, fa):
             pa[x] = fa 
-            sorted_child = sorted([ y for y in self.mol_tree[x] if y != fa ]) #better performance with fixed order
+            sorted_child = sorted([ y for y in mol_tree[x] if y != fa ]) #better performance with fixed order
             for idx,y in enumerate(sorted_child):
-                self.mol_tree[x][y]['label'] = 0 
-                self.mol_tree[y][x]['label'] = idx + 1 #position encoding
-                prev_sib[y] = sorted_child[:idx] 
-                prev_sib[y] += [x, fa] if fa >= 0 else [x]
-                order.append( (x,y,1) )
-                dfs(order, pa, prev_sib, y, x)
-                order.append( (y,x,0) )
+                if ((x,y,1) in order) or ((y,x,1) in order):
+                    # print('trying to add duplicate path to order')
+                    continue
+                else:
+                    mol_tree[x][y]['label'] = 0 
+                    mol_tree[y][x]['label'] = idx + 1 #position encoding
+                    prev_sib[y] = sorted_child[:idx] 
+                    prev_sib[y] += [x, fa] if fa >= 0 else [x]
+                    order.append( (x,y,1) )
+                    dfs(order, pa, prev_sib, y, x)
+                    # print((y,x,0))
+                    order.append( (y,x,0) )
 
         order, pa = [], {}
         self.mol_tree = nx.DiGraph(self.mol_tree)
@@ -208,7 +214,9 @@ class MolGraph(object):
 
         tree = self.mol_tree
         for i,cls in enumerate(self.clusters):
+            cls = [int(cl) for cl in cls]
             inter_atoms = set(cls) & set(self.clusters[pa[i]]) if pa[i] >= 0 else set([0])
+            inter_atoms = set([int(inter_atom) for inter_atom in inter_atoms])
             cmol, inter_label = get_inter_label(mol, cls, inter_atoms)
             tree.nodes[i]['ismiles'] = ismiles = get_smiles(cmol)
             tree.nodes[i]['inter_label'] = inter_label
@@ -218,7 +226,7 @@ class MolGraph(object):
             tree.nodes[i]['assm_cands'] = []
 
             if pa[i] >= 0 and len(self.clusters[ pa[i] ]) > 2: #uncertainty occurs in assembly
-                hist = [a for c in prev_sib[i] for a in self.clusters[c]] 
+                hist = [int(a) for c in prev_sib[i] for a in clusters[c]] 
                 pa_cls = self.clusters[ pa[i] ]
                 tree.nodes[i]['assm_cands'] = get_assm_cands(mol, hist, inter_label, pa_cls, len(inter_atoms)) 
 
