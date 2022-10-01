@@ -4,6 +4,8 @@ import networkx as nx
 from hgraph.mol_graph import MolGraph
 from hgraph.chemutils import *
 from collections import defaultdict
+import numpy as np
+
 
 class IncBase(object):
 
@@ -14,6 +16,7 @@ class IncBase(object):
         self.edge_dict = {None : 0} #make sure edge is 1 index
 
         self.fnode = torch.zeros(max_nodes * batch_size, node_fdim).long().cuda()
+        print(np.array(self.fnode.cpu()).shape)
         self.fmess = self.fnode.new_zeros(max_edges * batch_size, edge_fdim)
         self.agraph = self.fnode.new_zeros(max_edges * batch_size, max_nb)
         self.bgraph = self.fnode.new_zeros(max_edges * batch_size, max_nb)

@@ -14,16 +14,24 @@ class MolGraph(object):
     BOND_LIST = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE, Chem.rdchem.BondType.AROMATIC] 
     MAX_POS = 50
 
-    def __init__(self, smiles):
+    def __init__(self, smiles,max_span_tree=True):
         self.smiles = smiles
         self.mol = get_mol(smiles)
-
+        self.max_span_tree = max_span_tree
         self.mol_graph = self.build_mol_graph()
         self.clusters, self.atom_cls = self.find_clusters()
         self.mol_tree = self.tree_decomp()
         self.order = self.label_tree()
 
     def find_clusters(self):
+        '''
+        find_clusters: generate clusters of peptide molecule 
+        Inputs:
+            None
+        Outputs:
+            clusters, clusters of molecule
+            atom_cls, which clusters in atom in molecule are in
+        '''
         mol = self.mol
         n_atoms = mol.GetNumAtoms()
         if n_atoms == 1: #special case
@@ -150,8 +158,19 @@ class MolGraph(object):
         return clusters, atom_cls
 
     def tree_decomp(self):
+        '''
+        tree_decomp: generate graph of molecule based on clusters from find_clusters()
+        Inputs:
+            max_span_tree: if True, returns graph if len(nodes)-len(edges) = 1 and returns 
+            maximum_spanning_tree(graph) if len(nodes)-len(edges) < 1
+                           if False, always returns graph
+        Outputs:
+            graph of molecule
+        
+        '''
         clusters = self.clusters
         graph = nx.empty_graph( len(clusters) )
+        max_span_tree = self.max_span_tree
         for atom, nei_cls in enumerate(self.atom_cls):
             if len(nei_cls) <= 1: continue
             bonds = [c for c in nei_cls if len(clusters[c]) == 2]
@@ -180,9 +199,19 @@ class MolGraph(object):
         # if n - m <= 1:
         #     print(self.smiles)
         assert n - m <= 1 #must be connected
-        return graph if n - m == 1 else nx.maximum_spanning_tree(graph)
+        if not max_span_tree:
+            return graph
+        else:
+            return graph if n - m == 1 else nx.maximum_spanning_tree(graph)
 
     def label_tree(self):
+        '''
+        label_tree: define order to traverse graph and annotate graph with descriptions of nodes and edges
+        Inputs:
+            None
+        Outputs:
+            order: the order to traverse the graph
+        '''
         #dfs method from mol_graph original
         def dfs(order, pa, prev_sib, x, fa):
             pa[x] = fa 
@@ -256,8 +285,8 @@ class MolGraph(object):
         return graph
     
     @staticmethod
-    def tensorize(mol_batch, vocab, avocab):
-        mol_batch = [MolGraph(x) for x in mol_batch]
+    def tensorize(mol_batch, vocab, avocab,max_span_tree=True):
+        mol_batch = [MolGraph(x,max_span_tree) for x in mol_batch]
         tree_tensors, tree_batchG = MolGraph.tensorize_graph([x.mol_tree for x in mol_batch], vocab)
         graph_tensors, graph_batchG = MolGraph.tensorize_graph([x.mol_graph for x in mol_batch], avocab)
         tree_scope = tree_tensors[-1]
