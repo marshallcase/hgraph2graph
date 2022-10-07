@@ -37,9 +37,11 @@ class HierVAE(nn.Module):
         z_vecs = z_mean + torch.exp(z_log_var / 2) * epsilon if perturb else z_mean
         return z_vecs, kl_loss
 
-    def sample(self, batch_size, greedy):
+    def sample(self, batch_size, greedy,max_nodes=100,max_edges=200,max_sub_nodes=50,max_decode_step=150):
         root_vecs = torch.randn(batch_size, self.latent_size).cuda()
-        return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=greedy, max_decode_step=150)
+        return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=greedy,
+                                   max_decode_step=150,max_nodes=max_nodes,max_edges=max_edges,
+                                   max_sub_nodes=max_sub_nodes)
 
     def reconstruct(self, batch):
         graphs, tensors, _ = batch

@@ -288,12 +288,13 @@ class HierMPNDecoder(nn.Module):
             cand_vecs = cand_vecs.view(-1, 2, self.hidden_size).sum(dim=1)
         return cand_vecs
 
-    def decode(self, src_mol_vecs, greedy=True, max_decode_step=100, beam=5):
+    def decode(self, src_mol_vecs, greedy=True, max_decode_step=100, beam=5,max_nodes=100,max_edges=200,max_sub_nodes=50):
         src_root_vecs, src_tree_vecs, src_graph_vecs = src_mol_vecs
         batch_size = len(src_root_vecs)
 
-        tree_batch = IncTree(batch_size, node_fdim=2, edge_fdim=3)
-        graph_batch = IncGraph(self.avocab, batch_size, node_fdim=self.hmpn.atom_size, edge_fdim=self.hmpn.atom_size + self.hmpn.bond_size)
+        tree_batch = IncTree(batch_size, node_fdim=2, edge_fdim=3,max_nodes=max_nodes,max_edges=max_edges,
+                            max_sub_nodes=max_sub_nodes)
+        graph_batch = IncGraph(self.avocab, batch_size, node_fdim=self.hmpn.atom_size, edge_fdim=self.hmpn.atom_size + self.hmpn.bond_size,max_nodes=max_nodes,max_edges=max_edges)
         stack = [[] for i in range(batch_size)]
 
         init_vecs = src_root_vecs if self.latent_size == self.hidden_size else self.W_root(src_root_vecs)
@@ -325,6 +326,7 @@ class HierMPNDecoder(nn.Module):
         h[1 : batch_size + 1] = init_vecs #wiring root (only for tree, not inter)
         
         for t in range(max_decode_step):
+            print(Chem.MolToSmiles(graph_batch.mol))
             batch_list = [ bid for bid in range(batch_size) if len(stack[bid]) > 0 ]
             if len(batch_list) == 0: break
 
