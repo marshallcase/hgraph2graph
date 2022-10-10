@@ -65,11 +65,22 @@ class IncTree(IncBase):
     def get_tensors(self):
         return self.fnode, self.fmess, self.agraph, self.bgraph, self.cgraph, None 
 
-    def register_cgraph(self, i, nodes, edges, attached):
+    def register_cgraph(self, i, nodes, edges, attached,hvocab=None,vocab=None):
+        '''
+        Inputs:
+            nodes: indices of atoms
+            edges: indices of edges
+            attached: 
+        Outputs:
+            None        
+        '''
         self.cgraph[i, :len(nodes)] = self.fnode.new_tensor(nodes)
         self.graph.nodes[i]['cluster'] = nodes
         self.graph.nodes[i]['cluster_edges'] = edges
         self.graph.nodes[i]['attached'] = attached
+        
+        self.graph.nodes[i]['hvocab'] = hvocab
+        self.graph.nodes[i]['vocab'] = vocab
 
     def update_attached(self, i, attached):
         if len(self.graph.nodes[i]['cluster']) > 1: 
@@ -87,6 +98,18 @@ class IncTree(IncBase):
 
     def get_cluster_edges(self, node_list):
         return [ e for node_idx in node_list for e in self.graph.nodes[node_idx]['cluster_edges'] ]
+    
+    def is_sidechain(self,node_idx,vocab):
+        '''
+        Inputs:
+            node_idx: index of tree_graph node
+            vocab: Hvocab class from decode
+        Outputs:
+            is_sidechain: is the node a sidechain?        
+        '''
+        node_smiles = self.graph.nodes[node_idx]['vocab']
+        is_sidechain=vocab.is_sidechain_vocab(node_smiles)
+        return is_sidechain
 
 
 class IncGraph(IncBase):

@@ -93,6 +93,22 @@ class PairVocab(object):
     def is_staple_hvocab(self,hvocab_unit):
         return hvocab_unit in self.staple_hvocab
     
+    def is_sidechain_vocab(self,vocab_unit):
+        is_staple = self.is_staple_vocab(vocab_unit)
+        is_cterm = self.is_c_terminus_vocab(vocab_unit)
+        is_nterm = self.is_n_terminus_vocab(vocab_unit)
+        is_backbone = self.is_backbone_vocab(vocab_unit)
+        is_side_chain = (not is_staple) and (not is_cterm) and (not is_nterm) and (not is_backbone)
+        return is_side_chain
+    
+    def is_sidechain_hvocab(self,hvocab_unit):
+        is_staple = self.is_staple_hvocab(vocab_unit)
+        is_cterm = self.is_c_terminus_hvocab(vocab_unit)
+        is_nterm = self.is_n_terminus_hvocab(vocab_unit)
+        is_backbone = self.is_backbone_hvocab(vocab_unit)
+        is_side_chain = (not is_staple) and (not is_cterm) and (not is_nterm) and (not is_backbone)
+        return is_side_chain
+    
 
 COMMON_ATOMS = [('B', 0), ('B', -1), ('Br', 0), ('Br', -1), ('Br', 2), ('C', 0), ('C', 1), ('C', -1), ('Cl', 0), ('Cl', 1), ('Cl', -1), ('Cl', 2), ('Cl', 3), ('F', 0), ('F', 1), ('F', -1), ('I', -1), ('I', 0), ('I', 1), ('I', 2), ('I', 3), ('N', 0), ('N', 1), ('N', -1), ('O', 0), ('O', 1), ('O', -1), ('P', 0), ('P', 1), ('P', -1), ('S', 0), ('S', 1), ('S', -1), ('Se', 0), ('Se', 1), ('Se', -1), ('Si', 0), ('Si', -1)]
 common_atom_vocab = Vocab(COMMON_ATOMS)
