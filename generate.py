@@ -34,6 +34,11 @@ parser.add_argument('--diterT', type=int, default=1)
 parser.add_argument('--diterG', type=int, default=3)
 parser.add_argument('--dropout', type=float, default=0.0)
 
+parser.add_argument('--max_nodes',type=int,default=200)
+parser.add_argument('--max_edges',type=int,default=400)
+parser.add_argument('--max_AA',type=int,default=6)
+parser.add_argument('--max_sub_nodes',type=int,default=50)
+
 args = parser.parse_args()
 
 vocab = [x.strip("\r\n ").split() for x in open(args.vocab)] 

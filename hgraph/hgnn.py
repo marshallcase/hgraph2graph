@@ -21,7 +21,7 @@ class HierVAE(nn.Module):
     def __init__(self, args):
         super(HierVAE, self).__init__()
         self.encoder = HierMPNEncoder(args.vocab, args.atom_vocab, args.rnn_type, args.embed_size, args.hidden_size, args.depthT, args.depthG, args.dropout)
-        self.decoder = HierMPNDecoder(args.vocab, args.atom_vocab, args.rnn_type, args.embed_size, args.hidden_size, args.latent_size, args.diterT, args.diterG, args.dropout)
+        self.decoder = HierMPNDecoder(args.vocab, args.atom_vocab, args.rnn_type, args.embed_size, args.hidden_size, args.latent_size, args.diterT, args.diterG, args.dropout,args.max_AA,args.max_nodes, args.max_edges,args.max_sub_nodes)
         self.encoder.tie_embedding(self.decoder.hmpn)
         self.latent_size = args.latent_size
 
@@ -37,11 +37,12 @@ class HierVAE(nn.Module):
         z_vecs = z_mean + torch.exp(z_log_var / 2) * epsilon if perturb else z_mean
         return z_vecs, kl_loss
 
-    def sample(self, batch_size, greedy,max_nodes=100,max_edges=200,max_sub_nodes=50,max_decode_step=150):
+    def sample(self, batch_size, greedy,max_nodes=100,max_edges=200,max_sub_nodes=50,max_decode_step=150,max_AA=None):
+        if max_AA is None:
+            max_AA = args.max_AA
         root_vecs = torch.randn(batch_size, self.latent_size).cuda()
         return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=greedy,
-                                   max_decode_step=150,max_nodes=max_nodes,max_edges=max_edges,
-                                   max_sub_nodes=max_sub_nodes)
+                                   max_decode_step=max_decode_step,max_AA=max_AA)
 
     def reconstruct(self, batch):
         graphs, tensors, _ = batch

@@ -48,6 +48,12 @@ parser.add_argument('--anneal_iter', type=int, default=25000)
 parser.add_argument('--print_iter', type=int, default=50)
 parser.add_argument('--save_iter', type=int, default=5000)
 
+parser.add_argument('--max_nodes',type=int,default=200)
+parser.add_argument('--max_edges',type=int,default=400)
+parser.add_argument('--max_AA',type=int,default=6)
+parser.add_argument('--max_sub_nodes',type=int,default=50)
+
+
 args = parser.parse_args()
 print(args)
 

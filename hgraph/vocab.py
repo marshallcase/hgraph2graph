@@ -37,6 +37,18 @@ class PairVocab(object):
 
         if cuda: self.mask = self.mask.cuda()
         self.mask = self.mask - 1000.0
+        
+        self.backbone_vocab = ['CN1CCCC1[CH:1]=O','O=CC1CCCN1[CH3:1]','CNCC=O',
+                               'CNC[CH:1]=O','CN[CH2:1]C=O','O=CCN[CH3:1]']
+        self.c_terminus_vocab = ['O=C(O)C1CCCN1[CH3:1]','O=C(O)CN[CH3:1]']
+        self.n_terminus_vocab = ['NC[CH:1]=O','O=[CH:1]C1CCCN1']
+        self.staple_vocab = ['CCSCC(=O)CSC[CH3:1]']
+        
+        self.backbone_hvocab = ['CNCC=O','CN1CCCC1C=O']
+        self.c_terminus_hvocab = ['CN1CCCC1C(=O)O','CNCC(=O)O']
+        self.n_terminus_hvocab = ['NCC=O','O=CC1CCCN1']
+        self.staple_hvocab = ['CCSCC(=O)CSCC']
+                               
             
     def __getitem__(self, x):
         assert type(x) is tuple
@@ -56,6 +68,31 @@ class PairVocab(object):
 
     def get_inter_size(self, icls_idx):
         return self.inter_size[icls_idx]
+    
+    def is_backbone_vocab(self,vocab_unit):
+        return vocab_unit in self.backbone_vocab
+    
+    def is_backbone_hvocab(self,hvocab_unit):
+        return hvocab_unit in self.backbone_hvocab
+    
+    def is_c_terminus_vocab(self,vocab_unit):
+        return vocab_unit in self.c_terminus_vocab
+    
+    def is_c_terminus_hvocab(self,hvocab_unit):
+        return hvocab_unit in self.c_terminus_hvocab
+    
+    def is_n_terminus_vocab(self,vocab_unit):
+        return vocab_unit in self.n_terminus_vocab
+    
+    def is_n_terminus_hvocab(self,hvocab_unit):
+        return hvocab_unit in self.n_terminus_hvocab
+    
+    def is_staple_vocab(self,vocab_unit):
+        return vocab_unit in self.staple_vocab
+    
+    def is_staple_hvocab(self,hvocab_unit):
+        return hvocab_unit in self.staple_hvocab
+    
 
 COMMON_ATOMS = [('B', 0), ('B', -1), ('Br', 0), ('Br', -1), ('Br', 2), ('C', 0), ('C', 1), ('C', -1), ('Cl', 0), ('Cl', 1), ('Cl', -1), ('Cl', 2), ('Cl', 3), ('F', 0), ('F', 1), ('F', -1), ('I', -1), ('I', 0), ('I', 1), ('I', 2), ('I', 3), ('N', 0), ('N', 1), ('N', -1), ('O', 0), ('O', 1), ('O', -1), ('P', 0), ('P', 1), ('P', -1), ('S', 0), ('S', 1), ('S', -1), ('Se', 0), ('Se', 1), ('Se', -1), ('Si', 0), ('Si', -1)]
 common_atom_vocab = Vocab(COMMON_ATOMS)
@@ -65,4 +102,5 @@ def count_inters(s):
     inters = [a for a in mol.GetAtoms() if a.GetAtomMapNum() > 0]
     return max(1, len(inters))
 
-
+def flatten(l):
+    return [item for sublist in l for item in sublist]
