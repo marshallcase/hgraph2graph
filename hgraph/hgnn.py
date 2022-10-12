@@ -6,6 +6,7 @@ from hgraph.mol_graph import MolGraph
 from hgraph.encoder import HierMPNEncoder
 from hgraph.decoder import HierMPNDecoder
 from hgraph.nnutils import *
+from hgraph.predict import HierPredict
 
 
 def make_cuda(tensors):
@@ -27,6 +28,9 @@ class HierVAE(nn.Module):
 
         self.R_mean = nn.Linear(args.hidden_size, args.latent_size)
         self.R_var = nn.Linear(args.hidden_size, args.latent_size)
+        
+        self.predict = HierPredict(args.latent_size,args.label_size,args.dropout)
+        
 
     def rsample(self, z_vecs, W_mean, W_var, perturb=True):
         batch_size = z_vecs.size(0)
@@ -62,6 +66,13 @@ class HierVAE(nn.Module):
         loss, wacc, iacc, tacc, sacc = self.decoder((root_vecs, root_vecs, root_vecs), graphs, tensors, orders)
         return loss + beta * kl_div, kl_div.item(), wacc, iacc, tacc, sacc
 
+    def forward_predict(self,graph,tensors,orders,beta,perturb_z=True):
+        tree_tensors, graph_tensors = tensors = make_cuda(tensors)
+        root_vecs, tree_vecs, _, graph_vecs = self.encoder(tree_tensors, graph_tensors)
+        root_vecs, root_kl = self.rsample(root_vecs, self.R_mean, self.R_var, perturb_z)
+        output = self.predict(root_vecs)
+        return output
+        
 
 class HierVGNN(nn.Module):
 

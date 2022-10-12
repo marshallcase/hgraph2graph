@@ -108,8 +108,10 @@ if __name__ == "__main__":
         
         print(len(all_data))
         num_splits = len(all_data) // 1000
-        if num_splits < 1000:
+        if num_splits < 1000 and num_splits >= 100:
             num_splits = len(all_data) // 100
+        elif num_splits < 100:
+            num_splits = len(all_data) // 10
         print(num_splits)
         le = (len(all_data) + num_splits - 1) // num_splits
         
