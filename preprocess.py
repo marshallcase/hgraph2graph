@@ -5,7 +5,6 @@ import argparse
 from functools import partial
 import torch
 import numpy
-
 from hgraph import MolGraph, common_atom_vocab, PairVocab
 import rdkit
 
