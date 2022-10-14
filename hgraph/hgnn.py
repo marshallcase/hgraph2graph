@@ -49,16 +49,17 @@ class HierVAE(nn.Module):
         root_vecs, root_kl = self.rsample(root_vecs, self.R_mean, self.R_var, perturb=False)
         return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=True, max_decode_step=150)
        
-    def forward(self, graphs, tensors, orders, beta, perturb_z=True):
+    def forward(self, graphs, tensors, orders, beta, perturb_z=True,decode=True):
         tree_tensors, graph_tensors = tensors = make_cuda(tensors)
 
         root_vecs, tree_vecs, _, graph_vecs = self.encoder(tree_tensors, graph_tensors)
         root_vecs, root_kl = self.rsample(root_vecs, self.R_mean, self.R_var, perturb_z)
         kl_div = root_kl
-
-        loss, wacc, iacc, tacc, sacc = self.decoder((root_vecs, root_vecs, root_vecs), graphs, tensors, orders)
-        return loss + beta * kl_div, kl_div.item(), wacc, iacc, tacc, sacc
-
+        if decode:
+            loss, wacc, iacc, tacc, sacc = self.decoder((root_vecs, root_vecs, root_vecs), graphs, tensors, orders)
+            return loss + beta * kl_div, kl_div.item(), wacc, iacc, tacc, sacc
+        else:
+            return root_vecs
 
 class HierVGNN(nn.Module):
 
