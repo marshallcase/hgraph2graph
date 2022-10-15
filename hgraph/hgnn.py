@@ -6,7 +6,7 @@ from hgraph.mol_graph import MolGraph
 from hgraph.encoder import HierMPNEncoder
 from hgraph.decoder import HierMPNDecoder
 from hgraph.nnutils import *
-
+from hgraph.predict import HierPredict
 
 def make_cuda(tensors):
     tree_tensors, graph_tensors = tensors
@@ -27,6 +27,7 @@ class HierVAE(nn.Module):
 
         self.R_mean = nn.Linear(args.hidden_size, args.latent_size)
         self.R_var = nn.Linear(args.hidden_size, args.latent_size)
+        self.predict = HierPredict(args)
 
     def rsample(self, z_vecs, W_mean, W_var, perturb=True):
         batch_size = z_vecs.size(0)
@@ -49,7 +50,22 @@ class HierVAE(nn.Module):
         root_vecs, root_kl = self.rsample(root_vecs, self.R_mean, self.R_var, perturb=False)
         return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=True, max_decode_step=150)
        
-    def forward(self, graphs, tensors, orders, beta, perturb_z=True,decode=True):
+    def forward(self, graphs, tensors, orders, beta, perturb_z=True,decode=True,predict=False):
+        '''
+        forward: standard forward pass of the model
+        Inputs:
+            graphs:
+            tensors:
+            orders:
+            beta:
+            perturb_z: add noise to resampling
+            decode: whether to pass latent_vector for decoding during forward pass training or evaluation
+            predict: whether to reroute latent vector from encoder to prediction net (decode must be False)
+        Outputs:
+            if decode = True, loss and associated metrics
+            if decode = False and predict = False, latent vector
+            if decode = False and predict = True, predictions of HierPredict net        
+        '''
         tree_tensors, graph_tensors = tensors = make_cuda(tensors)
 
         root_vecs, tree_vecs, _, graph_vecs = self.encoder(tree_tensors, graph_tensors)
@@ -59,7 +75,11 @@ class HierVAE(nn.Module):
             loss, wacc, iacc, tacc, sacc = self.decoder((root_vecs, root_vecs, root_vecs), graphs, tensors, orders)
             return loss + beta * kl_div, kl_div.item(), wacc, iacc, tacc, sacc
         else:
-            return root_vecs
+            if predict:
+                output = self.predict(root_vecs)
+                return output
+            else:
+                return root_vecs
 
 class HierVGNN(nn.Module):
 
