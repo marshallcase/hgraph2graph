@@ -14,14 +14,14 @@ class MolGraph(object):
     BOND_LIST = [Chem.rdchem.BondType.SINGLE, Chem.rdchem.BondType.DOUBLE, Chem.rdchem.BondType.TRIPLE, Chem.rdchem.BondType.AROMATIC] 
     MAX_POS = 50
 
-    def __init__(self, smiles,max_span_tree=True):
+    def __init__(self, smiles):
         self.smiles = smiles
         self.mol = get_mol(smiles)
-        self.max_span_tree = max_span_tree
         self.mol_graph = self.build_mol_graph()
         self.clusters, self.atom_cls = self.find_clusters()
         self.mol_tree = self.tree_decomp()
         self.clusters,self.atom_cls = self.find_clusters_mono()
+        self.mol_tree = self.tree_decomp()
         self.order = self.label_tree()
 
     def find_clusters(self):
@@ -167,9 +167,12 @@ class MolGraph(object):
         Outputs:
             clusters,atom_cls
         '''
+        mol = self.mol
+        n_atoms = mol.GetNumAtoms()
         graph=self.mol_tree
         clusters = self.clusters
         cycles = nx.cycle_basis(graph)
+        assert len(cycles) == 2, self.smiles
         
         if any([i in cycles[1] for i in np.hstack(cycles[0])]):
             #compress to one big node
@@ -208,7 +211,6 @@ class MolGraph(object):
         '''
         clusters = self.clusters
         graph = nx.empty_graph( len(clusters) )
-        max_span_tree = self.max_span_tree
         for atom, nei_cls in enumerate(self.atom_cls):
             if len(nei_cls) <= 1: continue
             bonds = [c for c in nei_cls if len(clusters[c]) == 2]
@@ -237,10 +239,7 @@ class MolGraph(object):
         # if n - m <= 1:
         #     print(self.smiles)
         assert n - m <= 1 #must be connected
-        if not max_span_tree:
-            return graph
-        else:
-            return graph if n - m == 1 else nx.maximum_spanning_tree(graph)
+        return graph
 
     def label_tree(self):
         '''
@@ -261,6 +260,7 @@ class MolGraph(object):
                 else:
                     self.mol_tree[x][y]['label'] = 0 
                     self.mol_tree[y][x]['label'] = idx + 1 #position encoding
+                    assert y < len(prev_sib), self.smiles
                     prev_sib[y] = sorted_child[:idx] 
                     prev_sib[y] += [x, fa] if fa >= 0 else [x]
                     order.append( (x,y,1) )
