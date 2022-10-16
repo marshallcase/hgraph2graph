@@ -885,4 +885,4 @@ class HierMPNDecoder(nn.Module):
                         edge_feature = batch_idx.new_tensor( [child, stack[bid][-1], nth_child] )
                         new_edge = tree_batch.add_edge(child, stack[bid][-1], edge_feature)
                         
-    return graph_batch.get_mol()
+        return graph_batch.get_mol()

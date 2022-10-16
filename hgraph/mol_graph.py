@@ -21,6 +21,7 @@ class MolGraph(object):
         self.mol_graph = self.build_mol_graph()
         self.clusters, self.atom_cls = self.find_clusters()
         self.mol_tree = self.tree_decomp()
+        self.clusters,self.atom_cls = self.find_clusters_mono()
         self.order = self.label_tree()
 
     def find_clusters(self):
@@ -156,6 +157,43 @@ class MolGraph(object):
             print(mol)
             assert len(set(np.hstack(clusters))) == len(mol.GetAtoms())
         return clusters, atom_cls
+    
+    def find_clusters_mono(self):
+        '''
+        find_clusters_mono: turn cyclic graph into acyclic graph by updating cyclic nodes into a single node
+        Inputs:
+            clusters: from find_clusters()
+            graph: from tree_decomp()
+        Outputs:
+            clusters,atom_cls
+        '''
+        graph=self.mol_tree
+        clusters = self.clusters
+        cycles = nx.cycle_basis(graph)
+        
+        if any([i in cycles[1] for i in np.hstack(cycles[0])]):
+            #compress to one big node
+            ring_cluster = np.hstack(cycles)
+            new_cluster = tuple(set(np.hstack([clusters[i] for i in ring_cluster])))
+            clusters = [cluster for i,cluster in enumerate(clusters) if i not in  ring_cluster]
+            clusters.append(new_cluster)
+        else:
+            #compress to two separate nodes
+            ring_cluster1 = cycles[0]
+            ring_cluster2 = cycles[1]
+            new_cluster1 = tuple(set(np.hstack([clusters[i] for i in ring_cluster1])))
+            new_cluster2 = tuple(set(np.hstack([clusters[i] for i in ring_cluster2])))
+            clusters = [cluster for i,cluster in enumerate(clusters) if (i not in  ring_cluster1) and (i not in ring_cluster2)]
+            clusters.append(new_cluster1)
+            clusters.append(new_cluster2)
+    
+        #for each atom in the molecule, find which clusters it's a part of
+        atom_cls = [[] for i in range(n_atoms)]
+        for i in range(len(clusters)):
+            for atom in clusters[i]:
+                atom_cls[int(atom)].append(i)
+        
+        return clusters,atom_cls
 
     def tree_decomp(self):
         '''
