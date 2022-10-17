@@ -41,8 +41,7 @@ class HierVAE(nn.Module):
         if max_AA is None:
             max_AA = args.max_AA
         root_vecs = torch.randn(batch_size, self.latent_size).cuda()
-        return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=greedy,
-                                   max_decode_step=max_decode_step,max_AA=max_AA)
+        return self.decoder.decode((root_vecs, root_vecs, root_vecs), greedy=greedy,max_decode_step=max_decode_step,max_AA=max_AA)
 
     def reconstruct(self, batch):
         graphs, tensors, _ = batch

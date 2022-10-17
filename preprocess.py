@@ -116,5 +116,5 @@ if __name__ == "__main__":
             st = split_id * le
             sub_data = all_data[st : st + le]
 
-            with open('tensors-%d.pkl' % split_id, 'wb') as f:
+            with open('/scratch/gthurber_root/gthurber0/marcase/preprocess/'+'tensors-%d.pkl' % split_id, 'wb') as f:
                 pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
