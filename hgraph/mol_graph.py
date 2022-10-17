@@ -324,7 +324,7 @@ class MolGraph(object):
     
     @staticmethod
     def tensorize(mol_batch, vocab, avocab,max_span_tree=True):
-        mol_batch = [MolGraph(x,max_span_tree) for x in mol_batch]
+        mol_batch = [MolGraph(x) for x in mol_batch]
         tree_tensors, tree_batchG = MolGraph.tensorize_graph([x.mol_tree for x in mol_batch], vocab)
         graph_tensors, graph_batchG = MolGraph.tensorize_graph([x.mol_graph for x in mol_batch], avocab)
         tree_scope = tree_tensors[-1]
@@ -337,7 +337,7 @@ class MolGraph(object):
             offset = graph_scope[bid][0]
             tree_batchG.nodes[v]['inter_label'] = inter_label = [(x + offset, y) for x,y in attr['inter_label']]
             tree_batchG.nodes[v]['cluster'] = cls = [x + offset for x in attr['cluster']]
-            tree_batchG.nodes[v]['assm_cands'] = [add(x, offset) for x in attr['assm_cands']]
+            tree_batchG.nodes[v]['assm_cands'] = [add(int(x), offset) for x in attr['assm_cands'] if x is not None]
             cgraph[v, :len(cls)] = torch.IntTensor(cls)
 
         all_orders = []

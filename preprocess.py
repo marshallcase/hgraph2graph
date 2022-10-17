@@ -15,8 +15,8 @@ def to_numpy(tensors):
     b = [convert(x) for x in b[0]], [convert(x) for x in b[1]]
     return a, b, c
 
-def tensorize(mol_batch, vocab,max_span_tree=True):
-    x = MolGraph.tensorize(mol_batch, vocab, common_atom_vocab,max_span_tree)
+def tensorize(mol_batch, vocab):
+    x = MolGraph.tensorize(mol_batch, vocab, common_atom_vocab)
     return to_numpy(x)
 
 def tensorize_pair(mol_batch, vocab):
@@ -43,7 +43,6 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--mode', type=str, default='pair')
     parser.add_argument('--ncpu', type=int, default=8)
-    parser.add_argument('--max_span_tree', type=bool, default=True)
     args = parser.parse_args()
 
     with open(args.vocab) as f:
@@ -103,7 +102,7 @@ if __name__ == "__main__":
         random.shuffle(data)
 
         batches = [data[i : i + args.batch_size] for i in range(0, len(data), args.batch_size)]
-        func = partial(tensorize, vocab = args.vocab,max_span_tree=args.max_span_tree)
+        func = partial(tensorize, vocab = args.vocab)
         all_data = pool.map(func, batches)
         
         print(len(all_data))
