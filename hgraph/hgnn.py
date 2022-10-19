@@ -6,6 +6,7 @@ from hgraph.mol_graph import MolGraph
 from hgraph.encoder import HierMPNEncoder
 from hgraph.decoder import HierMPNDecoder
 from hgraph.nnutils import *
+from hgraph.predict import HierPredict
 
 
 def make_cuda(tensors):

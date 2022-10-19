@@ -57,6 +57,10 @@ parser.add_argument('--test')
 parser.add_argument('--test_labels')
 parser.add_argument('--label_size',type=int,default = 2)
 parser.add_argument('--separate_predict',default=False)
+parser.add_argument('--max_AA',type=int,default=15)
+parser.add_argument('--max_nodes',type=int,default=200)
+parser.add_argument('--max_edges',type=int,default=400)
+parser.add_argument('--max_sub_nodes',type=int,default=100)
 
 args = parser.parse_args()
 print(args)
@@ -125,6 +129,8 @@ meters_list = list(meters)
 validation_list = list()
 total_step = 0
 
+softmax = nn.Softmax(dim=1)
+
 #main train loop
 for epoch in range(args.epoch):
     random.seed(args.seed)
@@ -141,7 +147,8 @@ for epoch in range(args.epoch):
             y_pred = model(latent)
         else:
             y_pred = model(*batch_x,beta=beta,decode=False,predict=True)
-            
+        
+        y_pred = softmax(y_pred)
         y_true = torch.Tensor([int(y) for y in batch_y]).cuda()
         y_true = y_true.type(torch.LongTensor).cuda()
         loss = criterion(y_pred,y_true)
@@ -187,7 +194,7 @@ for epoch in range(args.epoch):
                 y_pred = model(latent)
             else:
                 y_pred = model(*batch_x,beta=beta,decode=False,predict=True)
-                
+            y_pred = softmax(y_pred)
             y_pred = torch.argmax(y_pred, dim=1)
             y_true = torch.Tensor([int(y) for y in batch_y0]).cuda()
             y_true = y_true.type(torch.LongTensor).cuda()

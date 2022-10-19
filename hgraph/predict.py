@@ -18,7 +18,7 @@ class HierPredict(nn.Module):
         )
         
         self.ff3 = nn.Sequential(nn.Linear(args.latent_size,args.label_size),
-                nn.Softmax(dim=1)         
+                # nn.Softmax(dim=1)         
         )
         
     def forward(self,x):
