@@ -43,6 +43,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--mode', type=str, default='pair')
     parser.add_argument('--ncpu', type=int, default=8)
+    parser.add_argument('--save_location',type=str,default='')
     args = parser.parse_args()
 
     with open(args.vocab) as f:
@@ -52,49 +53,7 @@ if __name__ == "__main__":
     pool = Pool(args.ncpu) 
     random.seed(1)
 
-    if args.mode == 'pair':
-        #dataset contains molecule pairs
-        with open(args.train) as f:
-            data = [line.strip("\r\n ").split()[:2] for line in f]
-
-        random.shuffle(data)
-
-        batches = [data[i : i + args.batch_size] for i in range(0, len(data), args.batch_size)]
-        func = partial(tensorize_pair, vocab = args.vocab)
-        all_data = pool.map(func, batches)
-        num_splits = max(len(all_data) // 1000, 1)
-
-        le = (len(all_data) + num_splits - 1) // num_splits
-
-        for split_id in range(num_splits):
-            st = split_id * le
-            sub_data = all_data[st : st + le]
-
-            with open('tensors-%d.pkl' % split_id, 'wb') as f:
-                pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
-
-    elif args.mode == 'cond_pair':
-        #dataset contains molecule pairs with conditions
-        with open(args.train) as f:
-            data = [line.strip("\r\n ").split()[:3] for line in f]
-
-        random.shuffle(data)
-
-        batches = [data[i : i + args.batch_size] for i in range(0, len(data), args.batch_size)]
-        func = partial(tensorize_cond, vocab = args.vocab)
-        all_data = pool.map(func, batches)
-        num_splits = max(len(all_data) // 1000, 1)
-
-        le = (len(all_data) + num_splits - 1) // num_splits
-
-        for split_id in range(num_splits):
-            st = split_id * le
-            sub_data = all_data[st : st + le]
-
-            with open('tensors-%d.pkl' % split_id, 'wb') as f:
-                pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
-
-    elif args.mode == 'single':
+    if args.mode == 'single':
         #dataset contains single molecules
         with open(args.train) as f:
             data = [line.strip("\r\n ").split()[0] for line in f]
@@ -116,5 +75,5 @@ if __name__ == "__main__":
             st = split_id * le
             sub_data = all_data[st : st + le]
 
-            with open('/scratch/gthurber_root/gthurber0/marcase/preprocess/'+'tensors-%d.pkl' % split_id, 'wb') as f:
+            with open(args.save_location+'tensors-%d.pkl' % split_id, 'wb') as f:
                 pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
