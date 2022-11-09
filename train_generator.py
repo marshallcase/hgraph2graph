@@ -53,6 +53,8 @@ parser.add_argument('--max_edges',type=int,default=400)
 parser.add_argument('--max_AA',type=int,default=6)
 parser.add_argument('--max_sub_nodes',type=int,default=50)
 
+parser.add_argument('--label_size',type=int,default=2)
+
 
 args = parser.parse_args()
 print(args)

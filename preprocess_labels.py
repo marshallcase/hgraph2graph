@@ -30,6 +30,7 @@ if __name__ == "__main__":
     parser.add_argument('--ncpu', type=int, default=8)
     parser.add_argument('--vocab', required=True)
     parser.add_argument('--max_span_tree', type=bool, default=True)
+    parser.add_argument('--save_location',type=str,default='')
     args = parser.parse_args()
     
     with open(args.vocab) as f:
@@ -69,7 +70,7 @@ if __name__ == "__main__":
             st = split_id * le
             sub_data = all_data[st : st + le]
 
-            with open('/scratch/gthurber_root/gthurber0/marcase/preprocess_mono/' +'tensors-%d.pkl' % split_id, 'wb') as f:
+            with open(args.save_location +'tensors-%d.pkl' % split_id, 'wb') as f:
                 pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
         
         
@@ -90,7 +91,7 @@ if __name__ == "__main__":
             st = split_id * le
             sub_data = all_data[st : st + le]
 
-            with open('/scratch/gthurber_root/gthurber0/marcase/preprocess_mono/' + 'tensors_labels-%d.pkl' % split_id, 'wb') as f:
+            with open(args.save_location + 'tensors_labels-%d.pkl' % split_id, 'wb') as f:
                 pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
                 
     else:
